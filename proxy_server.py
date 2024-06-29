@@ -46,8 +46,10 @@ def start_proxy_server(host, port, aes_key):
     server_socket.bind((host, port))
     server_socket.listen(5)
     print(f"Proxy server listening on {host}:{port}")
+    global running
+    running = True
 
-    while True:
+    while running:
         client_socket, client_address = server_socket.accept()
         print(f"Connection from {client_address}")
         handle_client(client_socket, aes_key)
@@ -89,7 +91,8 @@ def handle_client(client_socket, aes_key):
     finally:
         client_socket.close()
 
+# Move the aes_key outside the main block so it can be imported
+aes_key = os.urandom(32)
+
 if __name__ == "__main__":
-    # 32-byte key for AES-256
-    aes_key = os.urandom(32)
     start_proxy_server('0.0.0.0', 8888, aes_key)
