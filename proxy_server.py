@@ -6,93 +6,62 @@ import base64
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-# User database (for simplicity, storing in a dictionary)
-user_db = {
-    'user1': 'password1',
-    'user2': 'password2'
-}
-
-# TOTP secret for each user (for simplicity, storing in a dictionary)
-totp_secrets = {
-    'user1': pyotp.random_base32(),
-    'user2': pyotp.random_base32()
-}
-
-def authenticate_user(username, password):
-    return user_db.get(username) == password
-
-def verify_totp(username, token):
-    totp = pyotp.TOTP(totp_secrets[username])
-    return totp.verify(token)
-
 # AES-256 Encryption and Decryption
 def encrypt_message(message, key):
     iv = os.urandom(16)
     cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     ct = encryptor.update(message) + encryptor.finalize()
-    return base64.b64encode(iv + ct)
+    encrypted_message = base64.b64encode(iv + ct)
+    print(f"Encrypting message: {message}")
+    print(f"IV: {iv}")
+    print(f"Ciphertext: {ct}")
+    print(f"Encrypted message: {encrypted_message}")
+    return encrypted_message
 
 def decrypt_message(ciphertext, key):
     ciphertext = base64.b64decode(ciphertext)
     iv = ciphertext[:16]
     ct = ciphertext[16:]
+    print(f"Decrypting ciphertext: {ciphertext}")
+    print(f"IV: {iv}")
+    print(f"Ciphertext: {ct}")
     cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
     decryptor = cipher.decryptor()
-    return decryptor.update(ct) + decryptor.finalize()
+    decrypted_message = decryptor.update(ct) + decryptor.finalize()
+    print(f"Decrypted message: {decrypted_message}")
+    return decrypted_message
 
-def start_proxy_server(host, port, aes_key):
+def handle_client_connection(client_socket, aes_key):
+    auth_data = client_socket.recv(4096).decode()
+    print(f"Received auth_data: {auth_data}")
+
+    decrypted_packet = decrypt_message(auth_data.encode(), aes_key)
+    print(f"Received packet: {decrypted_packet}")
+
+    # Respond to client
+    response = "Packet received successfully"
+    encrypted_response = encrypt_message(response.encode(), aes_key)
+    client_socket.send(encrypted_response)
+
+    client_socket.close()
+
+def start_proxy_server(server_ip, server_port, aes_key):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
+    server_socket.bind((server_ip, server_port))
     server_socket.listen(5)
-    print(f"Proxy server listening on {host}:{port}")
-    global running
-    running = True
+    print(f"Server listening on {server_ip}:{server_port}")
 
-    while running:
-        client_socket, client_address = server_socket.accept()
-        print(f"Connection from {client_address}")
-        handle_client(client_socket, aes_key)
+    while True:
+        client_socket, addr = server_socket.accept()
+        print(f"Accepted connection from {addr}")
+        handle_client_connection(client_socket, aes_key)
 
-def handle_client(client_socket, aes_key):
-    try:
-        # Receive authentication data
-        auth_data = client_socket.recv(1024)
-        username, password, totp_token, encrypted_packet = auth_data.decode().split(':')
-
-        # Verify username and password
-        if not authenticate_user(username, password):
-            client_socket.send(b"Authentication failed")
-            client_socket.close()
-            return
-
-        # Verify TOTP
-        if not verify_totp(username, totp_token):
-            client_socket.send(b"TOTP verification failed")
-            client_socket.close()
-            return
-
-        # Decrypt the packet
-        decrypted_packet = decrypt_message(encrypted_packet, aes_key)
-
-        # Process the packet with Scapy
-        packet = IP(decrypted_packet)
-        print(f"Decoded packet: {packet.summary()}")
-
-        # Forward the packet to its destination
-        response = sr1(packet, timeout=1, verbose=0)
-
-        if response:
-            # Encrypt the response and send it back to the client
-            encrypted_response = encrypt_message(bytes(response), aes_key)
-            client_socket.send(encrypted_response)
-    except Exception as e:
-        print(f"Error handling client: {e}")
-    finally:
-        client_socket.close()
-
-# Move the aes_key outside the main block so it can be imported
-aes_key = os.urandom(32)
+# Define aes_key and other variables at the module level
+aes_key = b'\x00' * 32  # Example predefined key, ensure this matches the client's aes_key
 
 if __name__ == "__main__":
-    start_proxy_server('0.0.0.0', 8888, aes_key)
+    SERVER_IP = "127.0.0.1"
+    SERVER_PORT = 65432
+    
+    start_proxy_server(SERVER_IP, SERVER_PORT, aes_key)
