@@ -33,18 +33,22 @@ def decrypt_message(ciphertext, key):
     return decrypted_message
 
 def handle_client_connection(client_socket, aes_key):
-    auth_data = client_socket.recv(4096).decode()
-    print(f"Received auth_data: {auth_data}")
+    try:
+        auth_data = client_socket.recv(4096).decode()
+        print(f"Received auth_data: {auth_data}")
 
-    decrypted_packet = decrypt_message(auth_data.encode(), aes_key)
-    print(f"Received packet: {decrypted_packet}")
+        decrypted_packet = decrypt_message(auth_data.encode(), aes_key)
+        print(f"Received packet: {decrypted_packet}")
 
-    # Respond to client
-    response = "Packet received successfully"
-    encrypted_response = encrypt_message(response.encode(), aes_key)
-    client_socket.send(encrypted_response)
+        # Respond to client
+        response = "Packet received successfully"
+        encrypted_response = encrypt_message(response.encode(), aes_key)
+        client_socket.send(encrypted_response)
 
-    client_socket.close()
+    except Exception as e:
+        print(f"Error handling client connection: {e}")
+    finally:
+        client_socket.close()
 
 def start_proxy_server(server_ip, server_port, aes_key):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -61,7 +65,7 @@ def start_proxy_server(server_ip, server_port, aes_key):
 aes_key = b'\x00' * 32  # Example predefined key, ensure this matches the client's aes_key
 
 if __name__ == "__main__":
-    SERVER_IP = "127.0.0.1"
-    SERVER_PORT = 65432
+    SERVER_IP = "0.0.0.0"  # Accept connections from any network
+    SERVER_PORT = 8888
     
     start_proxy_server(SERVER_IP, SERVER_PORT, aes_key)
