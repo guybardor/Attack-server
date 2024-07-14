@@ -50,7 +50,10 @@ def handle_client_connection(client_socket, aes_key):
     finally:
         client_socket.close()
 
-def start_proxy_server(server_ip, server_port, aes_key):
+def start_proxy_server(aes_key):
+    server_ip = "0.0.0.0"
+    server_port = int(os.getenv("PORT", 8888))  # Koyeb provides PORT environment variable
+
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((server_ip, server_port))
     server_socket.listen(5)
@@ -61,11 +64,7 @@ def start_proxy_server(server_ip, server_port, aes_key):
         print(f"Accepted connection from {addr}")
         handle_client_connection(client_socket, aes_key)
 
-# Define aes_key and other variables at the module level
-aes_key = b'\x00' * 32  # Example predefined key, ensure this matches the client's aes_key
-
 if __name__ == "__main__":
-    SERVER_IP = "0.0.0.0"  # Accept connections from any network
-    SERVER_PORT = 8888
-    
-    start_proxy_server(SERVER_IP, SERVER_PORT, aes_key)
+    AES_KEY = base64.b64decode(os.getenv("AES_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))  # Ensure this is a base64 encoded key
+
+    start_proxy_server(AES_KEY)
