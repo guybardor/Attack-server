@@ -6,6 +6,9 @@ import base64
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
+#ourvpneran@outlook.com
+#ourvpnisshit69 
+
 # AES-256 Encryption and Decryption
 def encrypt_message(message, key):
     iv = os.urandom(16)
